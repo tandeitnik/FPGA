@@ -10,7 +10,7 @@
 
 	architecture behav of rndGaussGen is
 		
-		type memory is array (0 to 15) of unsigned(17 downto 0); --memory has to have 4 extra bits to accomodate the sum of 16 numbers without overflowing
+		type memory is array (0 to 15) of signed(17 downto 0); --memory has to have 4 extra bits to accomodate the sum of 16 numbers without overflowing
 		type state_type is (ST0,ST1);
 		signal PS, NS : state_type;
 		signal uniformNumbers : memory; --matrix to store uniform distributed numbers
@@ -30,7 +30,7 @@
 		
 		main: process(PS,clk_i)
 		variable count_1 : integer := 0;
-		variable sum     : unsigned(17 downto 0);
+		variable sum     : signed(17 downto 0);
 		begin
 			case PS is
 				when ST0 => --build uniformNumbers matrix
@@ -53,7 +53,7 @@
 				when ST1 =>
 				
 					if (rising_edge(clk_i)) then
-						sum := (   uniformNumbers(0)
+						sum := shift_right(  ( uniformNumbers(0)
 								 + uniformNumbers(1)
 								 + uniformNumbers(2)
 								 + uniformNumbers(3)
@@ -68,7 +68,7 @@
 								 + uniformNumbers(12)
 								 + uniformNumbers(13)
 								 + uniformNumbers(14)
-								 + uniformNumbers(15) ) srl 4; --sum 16 entries and divide by 16 (which is equivalent to srl 4)
+								 + uniformNumbers(15 )) , 4); --sum 16 entries and divide by 16 (which is equivalent to srl 4)
 						
 						for i in 0 to 14 loop -- shift the registers up
 							uniformNumbers(i) <= uniformNumbers(i+1);
@@ -77,7 +77,7 @@
 						uniformNumbers(15) <= (others => '0'); -- evaluate the last register
 						uniformNumbers(15)(13 downto 0) <= (uniformNumbers(15)(13 downto 0) srl 1) OR ((uniformNumbers(15)(13 downto 0) XOR (uniformNumbers(15)(13 downto 0) srl 1) XOR (uniformNumbers(15)(13 downto 0) srl 2) XOR (uniformNumbers(15)(13 downto 0) srl 12) ) sll 13) ;
 						
-						rndNumb <= std_logic_vector(sum(13 downto 0)); --output the normalized sum, which should give a normal distributed signal
+						rndNumb <= std_logic_vector(resize(sum,14)); --output the normalized sum, which should give a normal distributed signal
 						
 					end if;
 				when others =>
@@ -87,6 +87,5 @@
 			end case;
 			
 		end process main;
-		
-		
+	
 	end behav;
