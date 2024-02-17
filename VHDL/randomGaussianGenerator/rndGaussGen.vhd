@@ -4,7 +4,7 @@
 
 	-- entity
 	entity rndGaussGen is
-		port     (clk_i  : in  std_logic;
+		port     (clk_i   : in  std_logic;
 				  rndNumb : out std_logic_vector(13 downto 0) );
 	end rndGaussGen;
 
@@ -14,6 +14,7 @@
 		type state_type is (ST0,ST1);
 		signal PS, NS : state_type;
 		signal uniformNumbers : memory; --matrix to store uniform distributed numbers
+		signal tmp : unsigned(13 downto 0);
 		
 	begin
 
@@ -30,29 +31,36 @@
 		
 		main: process(PS,clk_i)
 		variable count_1 : integer := 0;
+		variable count_2 : integer := 0;
 		variable sum     : signed(17 downto 0);
 		begin
 			case PS is
 				when ST0 => --build uniformNumbers matrix
-					if (count_1 = 0) then --place seed at fist row
-						uniformNumbers(count_1) <= (0 => '1', others => '0'); 
-						--uniformNumbers(count_1)(0) <= '1';
-						count_1 := count_1 + 1;
-						NS <= ST0; --continue in this state
-					elsif (count_1 < 16) then -- evaluate next rows
-						uniformNumbers(count_1) <= (others => '0');
-						uniformNumbers(count_1)(13 downto 0) <= (uniformNumbers(count_1 - 1)(13 downto 0) srl 1) OR ((uniformNumbers(count_1 - 1)(13 downto 0) XOR (uniformNumbers(count_1 - 1)(13 downto 0) srl 1) XOR (uniformNumbers(count_1 - 1)(13 downto 0) srl 2) XOR (uniformNumbers(count_1 - 1)(13 downto 0) srl 12) ) sll 13) ;
-						count_1 := count_1 + 1;
-						NS <= ST0; --continue in this state
-					elsif (count_1 = 16) then -- matrix is done, advance to next state
-						NS <= ST1;--go to the next state
+					
+					if (rising_edge(clk_i)) then
+						
+						if (count_1 = 0) then --place seed at fist row
+							tmp <= (0 => '1', others => '0');
+							uniformNumbers(count_1) <= resize(signed(std_logic_vector(tmp)),18); 
+							count_1 := count_1 + 1;
+							NS <= ST0; --continue in this state
+						elsif (count_1 < 16) then -- evaluate next rows
+							tmp <= shift_right(tmp , 1) OR shift_left( tmp XOR shift_right(tmp , 1) XOR shift_right(tmp , 2) XOR shift_right(tmp , 12)  , 13) ;
+							uniformNumbers(count_1) <= resize(signed(std_logic_vector(tmp)),18); 
+							count_1 := count_1 + 1;
+							NS <= ST0; --continue in this state
+						elsif (count_1 = 16) then -- matrix is done, advance to next state
+							NS <= ST1;--go to the next state
+						end if;
+						
+						rndNumb <= (others => '0'); --rndNumb zeros when building matrix
+						--rndNumb <= std_logic_vector(resize(tmp,18));
 					end if;
-					
-					rndNumb <= (others => '0'); --rndNumb zeros when building matrix
-					
+							
 				when ST1 =>
 				
 					if (rising_edge(clk_i)) then
+					
 						sum := shift_right(  ( uniformNumbers(0)
 								 + uniformNumbers(1)
 								 + uniformNumbers(2)
@@ -69,17 +77,19 @@
 								 + uniformNumbers(13)
 								 + uniformNumbers(14)
 								 + uniformNumbers(15 )) , 4); --sum 16 entries and divide by 16 (which is equivalent to srl 4)
-						
+								 
 						for i in 0 to 14 loop -- shift the registers up
 							uniformNumbers(i) <= uniformNumbers(i+1);
 						end loop;
 						
-						uniformNumbers(15) <= (others => '0'); -- evaluate the last register
-						uniformNumbers(15)(13 downto 0) <= (uniformNumbers(15)(13 downto 0) srl 1) OR ((uniformNumbers(15)(13 downto 0) XOR (uniformNumbers(15)(13 downto 0) srl 1) XOR (uniformNumbers(15)(13 downto 0) srl 2) XOR (uniformNumbers(15)(13 downto 0) srl 12) ) sll 13) ;
-						
-						rndNumb <= std_logic_vector(resize(sum,14)); --output the normalized sum, which should give a normal distributed signal
+						tmp <= shift_right(tmp , 1) OR shift_left( tmp XOR shift_right(tmp , 1) XOR shift_right(tmp , 2) XOR shift_right(tmp , 12)  , 13) ;
+						uniformNumbers(15) <= resize(signed(std_logic_vector(tmp)),18); 
+						rndNumb <= std_logic_vector(resize(sum,14));
 						
 					end if;
+					
+					NS <= ST1;
+					
 				when others =>
 				
 					NS <= ST0;
