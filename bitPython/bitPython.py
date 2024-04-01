@@ -354,12 +354,13 @@ def tapList(n):
     
     return taps[n-2]
 
-def LFSR(n,N,seed):
+def LFSR(n,N,leapSize,seed):
     """
     Parameters
     ----------
     n : output is n-bit
     N : N-bit words are used to generate LFSR sequence
+    leapSize : size of the leap
     seed : first element of the sequence, must be a N-bit string
 
     Returns
@@ -370,6 +371,7 @@ def LFSR(n,N,seed):
 
     """
     assert len(seed) == N, 'length of seed must be equal to N'
+    assert len(seed) <= N, 'length of output (n) must be equal or less to N'
     
     seedArray = np.zeros(N)
     for i in range(N):
@@ -385,7 +387,7 @@ def LFSR(n,N,seed):
 
     M = np.concatenate((a,I), axis = 0)
 
-    leapMatrix = np.linalg.matrix_power(M, n)
+    leapMatrix = np.linalg.matrix_power(M, leapSize)
     
     outputArray = (leapMatrix@seedArray) % 2
 
